@@ -1,0 +1,8 @@
+server:
+  port: 8093
+# httpClient连接超时时长
+rest.connection-timeout: 1000
+# httpClient读取超时时长
+rest.read-timeout: 1000
+system.file.path: /root/test/ceshi.txt
+sys.service.url: http://172.32.150.114:49691

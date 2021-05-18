@@ -1,0 +1,84 @@
+#实体信息
+dag.key.entityInfo: ENTITY:APP:{ID}:HASH
+#提供者 提供者为平台提供能力（包括能力、接口、服务）
+dag.key.applier: ENTITY:APPLIER:{ID}:HASH
+
+#能力 能力为开发者可使用的平台能力，需记录该能力对应提供者ID信息
+dag.key.ability: ENTITY:ROUTE:{ID}:HASH
+
+#开发者 开发者为应用的开发者
+dag.key.developer: ENTITY:DEVELOPER:{ID}:HASH
+
+#应用 应用为对应客户端，需记录该应用对应开发者ID信息
+dag.key.app: ENTITY:APP:{ID}:HASH
+
+#能力订阅关系 应用需要先对能力订阅之后服务code，才可以进行调用
+dag.key.abilityRelation: RELATION:APP.{APP.ID}:PROCESS.CODE.{PROCESS.CODE}:STRING
+
+#应用订阅的能力、服务列表
+dag.key.subscribeRelation: RELATION:APP.{APP.ID}:SUBSCRIBE:STRING
+
+#地区分组 地市服务分组进行调用
+dag.key.cityRelation: RELATION:CITY.{CITY.ID}:GROUP:STRING
+
+#zk_path到服务的关系
+dag.key.entityRelation: RELATION:TEMPLATE.SERVICE:{ZK_PATH}:STRING
+
+#路由地址映射缓存
+#其中 {CUSTOM.KEY.ADDRESSTYPE} 可能是一个或多个业务参数拼接成的一个字符串。需要业务代码里控制
+dag.key.routeAddressMapping: ROUTE:{SERVICE.CODE}:{CUSTOM.KEY.ADDRESSTYPE}:HASH
+
+#计数器
+#dag.key.counter: COUNTER:TURNOVER.QUERY:{REQUEST.ID}:STRING
+dag.key.counter: COUNTER:{PROCESS.CODE}:{REQUEST.ID}:STRING
+
+#协议模板（报文适配）
+#针对apisix的服务调用，请求模版、返回模版、错误模版，实际保存在etcd中，加载在服务的缓存中使用。redis根据查询条件存储对应模版ID，使用HASH类型数据
+#其中，hash结构的hk hv如：{ID:"{ID}",CODE:"{CODE}",CONTENT:"{xml格式}",TYPE:"{TYPE}",ENCODING:"{ENCODING}"}
+#其中，TYPE:"{TYPE}" 值是在 请求REQUEST 返回RESPONSE 错误ERROR 编排PROCESS 四者中选择一个
+dag.key.template: MODEL:TEMPLATE:{ID}:HASH
+
+#针对协议格式转换模版的判定根据APP_ID,REQ_CODE组合完成,组合条件三种情况选一种，APP_ID，REQ_CODE，APP_ID.REQ_CODE
+#将查询条件作为KEY，对应模版的ID作为VALUE，使用HASH类型数据
+#如: {REQUEST: "{TEMPLATE.ID}", RESPONSE:"{TEMPLATE.ID}", ERROR: "{TEMPLATE.ID}"}
+dag.key.protocolTemplateRelation: RELATION:PROTOCOL.TEMPLATE:{APP_ID.REQ_CODE}:HASH
+
+#针对编排模板，短流程调用引擎使用相同策略，存储在REDIS，引擎服务加载到缓存中进行使用。调用时根据能力及报文内容，使用不用ID的模板。
+#使用STRING类型数据。如 SET RELATION:PROCESS.TEMPLATE:{SERVICENAME}:STRING “{TEMPLATE.ID}”
+dag.key.processTemplateRelation:  RELATION:PROCESS.TEMPLATE:{SERVICENAME}:STRING
+
+#对于apisix对模板的解析需要一个版本号，做为apisix是否需要重新解析模板的标识。针对每个模板指定一个版本号，每次模板进行新增或者修改的时候，将对版本号进行修改。使用SORTEDSET类型数据
+# value如："{SCORE}"{TEMPLATE.ID}
+dag.key.templateVersion: VERSION:TEMPLATE:SORTEDSET
+
+#Token
+dag.key.token: TOKEN:{TOKEN}:HASH
+
+#字典翻译 原理为根据报文中domain_id(域标识)、source_value(待翻译的值)、value_type(值类型)获取target_value(对应的值)。使用HASH类型数据,作为实体进行保存。
+# hk hv如：“{ID}”DOMAINID “{DOMAINID}”SOURCEVALUE “{SOURCEVALUE}” VALUETYPE “{VALUETYPE}” TARGETVALUE “{TARGETVALUE}”
+#dag.key.dataMap: ENTITY:DATAMAP:{ID}:HASH
+dag.key.dataMap: ENTITY:DATAMAP:{ID}:HASH
+#为便于apisix使用，将域标识和待翻译的值和类型作为key，对应的值作为value。使用String类型进行存储
+dag.key.dataMapCache: DATAMAP:{DOMAINID}.{VALUETYPE}.{SOURCEVALUE}:STRING
+
+#针对每个字典翻译指定一个版本号，每次模板进行新增或者修改的时候，将对版本号进行修改。使用SORTEDSET类型数据
+## value如："{SCORE}""{DOMAINID}.{VALUETYPE}.{SOURCEVALUE}"
+dag.key.dataMapVersion: VERSION:DATAMAP:SORTEDSET
+
+#应用(渠道) + 地市 调用的CRM接口的接口地址类型(生产(N)、灰度(y)、应急(E)、充值应急状态(ER))
+dag.key.appCityReqType: RELATION:APP.{APP.ID}:CITY.{CITY.ID}:REQTYPE:STRING
+
+#注册路由时，需要保证code的唯一性，则将code作为参数使用该key，值用路由ID（旧，仅作为保存关系用）
+dag.key.routeCode: ENTITY:ROUTE:CODE.{CODE}:STRING
+
+#注册路由时，需要保证code的唯一性，则将code+路由类型作为参数使用该key，值用路由ID
+dag.key.typeRouteCode: ENTITY:ROUTE:CODE.{CODE}.TYPE.{TYPE}:STRING
+
+#路由apisix接口配置
+dag.key.pluginRouteCode: PLUGIN:ROUTE.{ROUTE.ID}:{PLUGIN.NAME}:HASH
+#应用apisix接口配置
+dag.key.pluginAppCode: PLUGIN:APP.{APP.ID}:{PLUGIN.NAME}:HASH
+#开发者apisix接口配置
+dag.key.pluginDeveloperCode: PLUGIN:DEVELOPER.{DEVELOPER.ID}:{PLUGIN.NAME}:HASH
+#灰度路由地址映射，根据APPLYERID.APPID.CITYID 获取灰度环境地址
+dag.key.grayRoute: RELATION:GRAY.ROUTE:{APPLYERID}.{APPID}.{CITYID}:HASH

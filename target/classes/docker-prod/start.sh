@@ -1,0 +1,1 @@
+java $agent -jar -Duser.timezone=GMT+08 /usr/local/nldata/serviceKeeper-*.jar --spring.profiles.active=${APP_ENV:-prod}

@@ -1,0 +1,2 @@
+#dev 本地测试环境 prod生产环境 test测试环境
+spring.profiles.active: test
