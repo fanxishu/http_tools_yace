@@ -9,25 +9,18 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.newland.research.serviceKeeper.common.Constant;
 import com.newland.research.serviceKeeper.error.GlobaleException;
 import com.newland.research.serviceKeeper.utils.HttpUtils;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.ThreadPoolExecutor.DiscardPolicy;
 import java.util.concurrent.atomic.AtomicLong;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,7 +34,7 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
     @Autowired
     HttpUtils httpUtils;
     private volatile Long endTime = 0L;
-
+    private static final Object object=new Object();
     public ServiceListener() {
     }
 
@@ -53,6 +46,9 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
     }
 
     public static void main(String[] args) {
+       /* ServiceListener serviceListener=new ServiceListener();
+        serviceListener.createFixed("aaa");*/
+
     }
 
     private void createNocaceTime(String fileContent) {
@@ -67,18 +63,21 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         long beginTimes = System.currentTimeMillis();
         this.endTime = beginTimes;
         String sysServiceUrl = Constant.nums[2];
-
-        while(System.currentTimeMillis() < beginTime) {
+        Map<Long, Long> longLongConcurrentHashMap = new ConcurrentHashMap<>();
+        while (System.currentTimeMillis() < beginTime) {
             scanerThreadPool.execute(() -> {
-                total.incrementAndGet();
-
                 try {
+                    long beginSendTime = System.currentTimeMillis();
                     this.send(fileContent, sysServiceUrl);
                     successCount.incrementAndGet();
+                    synchronized (object) {
+                        Long time = System.currentTimeMillis() - beginSendTime;
+                        longLongConcurrentHashMap.put(time, (longLongConcurrentHashMap.get(time) == null ? 0l : longLongConcurrentHashMap.get(time)) + 1);
+                    }
                 } catch (GlobaleException var15) {
                     failCount.incrementAndGet();
                 }
-
+                total.incrementAndGet();
                 Long currentTimes = System.currentTimeMillis() - Long.valueOf(Constant.nums[7]) * 1000L;
                 if (this.endTime <= currentTimes) {
                     this.endTime = System.currentTimeMillis();
@@ -97,12 +96,10 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
 
             });
         }
-
         scanerThreadPool.shutdown();
-
-        while(!scanerThreadPool.isTerminated()) {
+        while (!scanerThreadPool.isTerminated()) {
         }
-
+        log.info("线程执行完成：" + scanerThreadPool.isTerminated());
         List<String> lists = new ArrayList();
         String totalNum = "总的请求次数：" + total.get();
         String successlNum = "成功请求次数：" + successCount.get();
@@ -110,11 +107,55 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         Long endTimes = System.currentTimeMillis();
         String totalTime = "总的请求时间：：" + (endTimes - beginTimes) / 1000L;
         String per = "吞吐率：：" + successCount.get() / ((endTimes - beginTimes) / 1000L);
+        Long T95 = new Double(total.get() * 0.95).longValue();
+        Long T90 = new Double(total.get() * 0.90).longValue();
+        Long T99 = new Double(total.get() * 0.99).longValue();
+        Map<Long, Long> testMap = new TreeMap<Long, Long>(longLongConcurrentHashMap);
+        Boolean T95Flag = true;
+        Boolean T90Flag = true;
+
+        Boolean T99Flag = true;
+
+        Long allCount = 0l;
+        Long mapkey = 0l;
+        for (Long key : testMap.keySet()) {
+            allCount = allCount + testMap.get(key) * key;
+            if (T90 <= allCount && T90Flag) {
+                T90Flag = false;
+                T90 = key;
+            }
+            if (T95 <= allCount && T95Flag) {
+                T95Flag = false;
+                T95 = key;
+            }
+            if (T99 <= allCount && T99Flag) {
+                T99Flag = false;
+                T99 = key;
+            }
+            mapkey = key;
+        }
+        /*if(T90Flag){
+            T90=key;
+        }
+        if(T90Flag){
+
+        }
+        if(T90Flag){
+
+        }*/
+        log.info("T90：：" + T90);
+        log.info("T95：：" + T95);
+        log.info("T99：：" + T99);
+
         lists.add(totalNum);
         lists.add(successlNum);
         lists.add(faillNum);
         lists.add(totalTime);
         lists.add(per);
+        lists.add(String.valueOf(T90));
+        lists.add(String.valueOf(T95));
+        lists.add(String.valueOf(T99));
+
         log.info("executorService.isTerminated()：：" + scanerThreadPool.isTerminated());
         log.info(totalNum);
         log.info(successlNum);
@@ -134,8 +175,8 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
             PrintWriter pw = new PrintWriter(new FileWriter(filePath));
             Iterator var5 = lists.iterator();
 
-            while(var5.hasNext()) {
-                String str = (String)var5.next();
+            while (var5.hasNext()) {
+                String str = (String) var5.next();
                 pw.println(str);
             }
 
@@ -179,29 +220,40 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         ExecutorService executorService = Executors.newFixedThreadPool(32);
         long beginTimes = System.currentTimeMillis();
         log.info("executorService.isTerminated()：：" + System.currentTimeMillis());
+        ConcurrentHashMap<String, Long> concurrentHashMap = new ConcurrentHashMap<>();
 
-        for(int j = 0; j < 30000; ++j) {
+        for (int j = 0; j < 30000; ++j) {
             executorService.submit(new Runnable() {
                 public void run() {
-                    ServiceListener.log.info(Thread.currentThread().getName());
+                    log.info(Thread.currentThread().getName());
                     total.incrementAndGet();
+                  /*  try {*/
+                        long beginSendTime = System.currentTimeMillis();
 
-                    try {
-                        ServiceListener.this.send(fileContent, (String)null);
+                        /*this.send(fileContent, null);*/
+
+                      /*  Thread.sleep((int) (Math.random()*(100-1)+1));*/
+                        synchronized (object) {
+                            concurrentHashMap.put("sss", (concurrentHashMap.get("sss") == null ? 0 : concurrentHashMap.get("sss")) + 1);
+                        }
                         successCount.incrementAndGet();
-                    } catch (GlobaleException var2) {
+                 /*  } catch (GlobaleException var2) {
                         failCount.incrementAndGet();
-                    }
+                    }*/ /*catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }*/
 
                 }
+
+
             });
         }
 
         executorService.shutdown();
 
-        while(!executorService.isTerminated()) {
+        while (!executorService.isTerminated()) {
         }
-
+        System.out.println(concurrentHashMap.get("sss"));
         log.info("executorService.isTerminated()：：" + executorService.isTerminated());
         log.info("总的请求次数：" + total.get());
         log.info("成功请求次数：" + successCount.get());
@@ -219,7 +271,7 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         long beginTimes = System.currentTimeMillis();
         ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
 
-        for(int i = 0; i < 1000; ++i) {
+        for (int i = 0; i < 1000; ++i) {
             executorService.schedule(() -> {
                 System.out.println("线程名字： " + Thread.currentThread().getName());
                 total.incrementAndGet();
@@ -227,7 +279,7 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
 
                 try {
                     int sleep = (new Random()).nextInt(100) + 1;
-                    Thread.sleep((long)sleep);
+                    Thread.sleep((long) sleep);
                 } catch (InterruptedException var5) {
                     var5.printStackTrace();
                 }
@@ -244,7 +296,7 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
 
         executorService.shutdown();
 
-        while(!executorService.isTerminated()) {
+        while (!executorService.isTerminated()) {
         }
 
         System.out.println("executorService.isTerminated()：：" + executorService.isTerminated());
@@ -261,14 +313,14 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         AtomicLong failCount = new AtomicLong();
         AtomicLong total = new AtomicLong();
         int currentTime = 60;
-        long beginTime = System.currentTimeMillis() + (long)(currentTime * 1000);
+        long beginTime = System.currentTimeMillis() + (long) (currentTime * 1000);
         long beginTimes = System.currentTimeMillis();
         System.out.println("Thread:" + Thread.currentThread());
 
-        while(System.currentTimeMillis() < beginTime) {
+        while (System.currentTimeMillis() < beginTime) {
             ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
 
-            for(int i = 0; i < 1000; ++i) {
+            for (int i = 0; i < 1000; ++i) {
                 executorService.schedule(() -> {
                     System.out.println("线程名字： " + Thread.currentThread().getName());
                     total.incrementAndGet();
@@ -276,7 +328,7 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
 
                     try {
                         int sleep = (new Random()).nextInt(100) + 1;
-                        Thread.sleep((long)sleep);
+                        Thread.sleep((long) sleep);
                     } catch (InterruptedException var5) {
                         var5.printStackTrace();
                     }
@@ -293,7 +345,7 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
 
             executorService.shutdown();
 
-            while(total.get() != successCount.get() + failCount.get()) {
+            while (total.get() != successCount.get() + failCount.get()) {
             }
 
             System.out.println("executorService.isTerminated()：：" + executorService.isTerminated());
@@ -314,7 +366,7 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
             BufferedReader br = new BufferedReader(new FileReader(file));
             String s = null;
 
-            for(result = br.readLine(); (s = br.readLine()) != null; result = result + "\n" + s) {
+            for (result = br.readLine(); (s = br.readLine()) != null; result = result + "\n" + s) {
             }
 
             br.close();
