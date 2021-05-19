@@ -70,23 +70,21 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
 
         while (System.currentTimeMillis() < beginTime) {
             scanerThreadPool.execute(() -> {
+                long beginSendTime = System.currentTimeMillis();
                 try {
-                    long beginSendTime = System.currentTimeMillis();
                     this.send(fileContent, sysServiceUrl);
                     successCount.incrementAndGet();
-                    synchronized (object) {
-                        Long time = System.currentTimeMillis() - beginSendTime;
 
-                        totalTimes.addAndGet(time);
-
-                        longLongConcurrentHashMap.put(time, (longLongConcurrentHashMap.get(time) == null ? 0l : longLongConcurrentHashMap.get(time)) + 1);
-                    }
                 } catch (GlobaleException var15) {
                     failCount.incrementAndGet();
                 }
-                total.incrementAndGet();
-                Long currentTimes = System.currentTimeMillis() - Long.valueOf(Constant.nums[7]) * 1000L;
-                if (this.endTime <= currentTimes) {
+                synchronized (object) {
+                    Long time = System.currentTimeMillis() - beginSendTime;
+                    totalTimes.addAndGet(time);
+                    longLongConcurrentHashMap.put(time, (longLongConcurrentHashMap.get(time) == null ? 0l : longLongConcurrentHashMap.get(time)) + 1);
+                   total.incrementAndGet();
+                  Long currentTimes = System.currentTimeMillis() - Long.valueOf(Constant.nums[7]) * 1000L;
+                  if (this.endTime <= currentTimes) {
                     this.endTime = System.currentTimeMillis();
                     String totalNum = "总的请求次数：" + total.get();
                     String successlNum = "成功请求次数：" + successCount.get();
@@ -103,7 +101,7 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
                     log.info(allTimes);
 
                 }
-
+                }
             });
         }
         scanerThreadPool.shutdown();
@@ -128,9 +126,8 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         Boolean T99Flag = true;
 
         Long allCount = 0l;
-        Long mapkey = 0l;
         for (Long key : testMap.keySet()) {
-            allCount = allCount + testMap.get(key) * key;
+            allCount = allCount + testMap.get(key) ;
             if (T90 <= allCount && T90Flag) {
                 T90Flag = false;
                 T90 = key;
@@ -143,17 +140,8 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
                 T99Flag = false;
                 T99 = key;
             }
-            mapkey = key;
         }
-        /*if(T90Flag){
-            T90=key;
-        }
-        if(T90Flag){
-
-        }
-        if(T90Flag){
-
-        }*/
+        log.info("allCount:"+allCount);
         String strT90="T90:"+T90;
         String strT95="T90:"+T95;
         String strT99="T90:"+T99;
