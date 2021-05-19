@@ -46,6 +46,7 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
     }
 
     public static void main(String[] args) {
+
        /* ServiceListener serviceListener=new ServiceListener();
         serviceListener.createFixed("aaa");*/
 
@@ -58,12 +59,15 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         AtomicLong total = new AtomicLong();
         AtomicLong successCount = new AtomicLong();
         AtomicLong failCount = new AtomicLong();
+        AtomicLong totalTimes = new AtomicLong();
+
         Long currentTime = Long.valueOf(Constant.nums[1]);
         long beginTime = System.currentTimeMillis() + currentTime * 1000L;
         long beginTimes = System.currentTimeMillis();
         this.endTime = beginTimes;
         String sysServiceUrl = Constant.nums[2];
         Map<Long, Long> longLongConcurrentHashMap = new ConcurrentHashMap<>();
+
         while (System.currentTimeMillis() < beginTime) {
             scanerThreadPool.execute(() -> {
                 try {
@@ -72,6 +76,9 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
                     successCount.incrementAndGet();
                     synchronized (object) {
                         Long time = System.currentTimeMillis() - beginSendTime;
+
+                        totalTimes.addAndGet(time);
+
                         longLongConcurrentHashMap.put(time, (longLongConcurrentHashMap.get(time) == null ? 0l : longLongConcurrentHashMap.get(time)) + 1);
                     }
                 } catch (GlobaleException var15) {
@@ -87,11 +94,14 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
                     Long endTimes = System.currentTimeMillis();
                     String totalTime = "总的请求时间：：" + (endTimes - beginTimes) / 1000L;
                     String per = "吞吐率：：" + successCount.get() / ((endTimes - beginTimes) / 1000L);
+                    String allTimes="所有总的请求时间:"+totalTimes.get();
                     log.info(totalNum);
                     log.info(successlNum);
                     log.info(faillNum);
                     log.info(totalTime);
                     log.info(per);
+                    log.info(allTimes);
+
                 }
 
             });
@@ -106,6 +116,7 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         String faillNum = "失败请求次数：" + failCount.get();
         Long endTimes = System.currentTimeMillis();
         String totalTime = "总的请求时间：：" + (endTimes - beginTimes) / 1000L;
+        String allTimes="所有总的请求时间:"+totalTimes.get();
         String per = "吞吐率：：" + successCount.get() / ((endTimes - beginTimes) / 1000L);
         Long T95 = new Double(total.get() * 0.95).longValue();
         Long T90 = new Double(total.get() * 0.90).longValue();
@@ -143,6 +154,10 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         if(T90Flag){
 
         }*/
+        String strT90="T90:"+T90;
+        String strT95="T90:"+T95;
+        String strT99="T90:"+T99;
+
         log.info("T90：：" + T90);
         log.info("T95：：" + T95);
         log.info("T99：：" + T99);
@@ -152,9 +167,12 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         lists.add(faillNum);
         lists.add(totalTime);
         lists.add(per);
-        lists.add(String.valueOf(T90));
-        lists.add(String.valueOf(T95));
-        lists.add(String.valueOf(T99));
+        lists.add(strT90);
+        lists.add(strT95);
+        lists.add(strT99);
+        lists.add(strT99);
+        lists.add(allTimes);
+
 
         log.info("executorService.isTerminated()：：" + scanerThreadPool.isTerminated());
         log.info(totalNum);
@@ -162,6 +180,8 @@ public class ServiceListener implements ApplicationListener<ApplicationReadyEven
         log.info(faillNum);
         log.info(totalTime);
         log.info(per);
+        log.info(allTimes);
+
         String usrHome = System.getProperty("user.home") + "/result.txt";
         this.WriteStringToFile3(usrHome, lists);
         System.exit(1);
